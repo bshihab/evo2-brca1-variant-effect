@@ -23,7 +23,10 @@ def _not_yet(name: str, milestone: str) -> int:
 
 def cmd_data(_args: argparse.Namespace) -> int:
     """[Milestone 1] Fetch + build the variant datasets."""
-    return _not_yet("data", "Milestone 1")
+    from gvep.data.build import run
+
+    run()
+    return 0
 
 
 def cmd_score(_args: argparse.Namespace) -> int:

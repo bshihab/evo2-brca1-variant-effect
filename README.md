@@ -49,8 +49,8 @@ rationale, hardware findings, and licensing are documented in
 | Milestone | Description | Status |
 |---|---|---|
 | 0 | Scaffolding, primer, access-path research | ✅ done |
-| 1 | Data layer (Findlay + ClinVar + reference) | ⬜ next |
-| 2 | Core zero-shot scoring engine | ⬜ |
+| 1 | Data layer (Findlay + ClinVar + reference) | ✅ done |
+| 2 | Core zero-shot scoring engine | ⬜ next |
 | 3 | Validation + honesty layer | ⬜ |
 | 4 | Embedding-based classifier | ⬜ |
 | 5 | Explanation layer | ⬜ |

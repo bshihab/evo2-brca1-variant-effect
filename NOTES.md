@@ -56,4 +56,61 @@ make help    # list milestone entry points
 ---
 
 ## Milestone 1 — Data layer
+
+**Date:** 2026-06-15
+
+### What this milestone is
+Build the data foundation: fetch the BRCA1 reference region, the Findlay 2018 ground-truth
+dataset, and a ClinVar slice; produce per-variant ref/variant sequence windows with
+coordinates and labels; and *prove the data is internally consistent* before any modeling.
+
+### Sources confirmed (research before coding)
+The cleanest, canonical sources are the files bundled in the Evo 2 repo (so our pipeline
+matches the published one exactly):
+- **Findlay 2018:** `41586_2018_461_MOESM3_ESM.xlsx` (read with `header=2`); columns
+  `chromosome, position (hg19), reference, alt, function.score.mean, func.class`.
+- **Reference:** `GRCh37.p13_chr17.fna.gz`.
+- **Critical fact:** coordinates are **hg19/GRCh37**, *not* GRCh38. Using the wrong build
+  would have silently shifted every position. This is why the ref-allele check exists.
+- **ClinVar:** NCBI E-utilities (`esearch`+`esummary`, JSON), term
+  `BRCA1[gene] AND "single nucleotide variant"[Type of variation]`.
+
+### Biology / ML reasoning
+- Findlay function scores are **bimodal**: FUNC (tolerated) vs LOF (disruptive), with a thin
+  INT band between. We'll treat LOF as "pathogenic-like" and FUNC as "benign-like" for the
+  Milestone 3 evaluation; INT is genuinely ambiguous and we'll handle it explicitly.
+- Each variant becomes two 8192-bp windows (ref vs alt at the center) — the exact inputs
+  Evo 2 will score next milestone.
+
+### Results
+- **3,893 clean SNVs** (every raw row survived cleaning — the bundled file is already tidy).
+- Class balance: **FUNC 72.5% / INT 6.4% / LOF 21.1%**. The 21% LOF minority is important:
+  Milestone 3's honesty layer must report minority-class performance, not just aggregate AUROC.
+- **Integrity: ref allele matches the genome for 3,893/3,893 (100%).** This is the headline —
+  it validates coordinates, genome build, and the forward-strand assumption all at once.
+- Score range `[-5.65, 1.31]` (lower = more disruptive), matching the published distribution.
+- **ClinVar:** 4,999 BRCA1 SNVs, **1,410 VUS** (the variants a triage tool most wants to rank).
+
+### Decisions & gotchas
+- **Strand:** BRCA1 is minus-strand, but Findlay ref/alt are on the **forward** genomic strand
+  (proven by the 100% ref match against plus-strand chr17). Evo 2 sees both strands in
+  training, so we feed forward-strand windows directly — no reverse-complement.
+- **Storage:** processed tables are small CSVs (coords + score + class + `ref_match`); we do
+  NOT persist the 64 MB of full window strings — they're rebuilt on demand from the cached
+  reference via `build_window()`. Keeps the repo light and the data regenerable.
+- **0-based vs 1-based:** dataset positions are 1-based; we convert with `p = pos - 1` before
+  string indexing. Off-by-one here would have broken the ref check — it didn't.
+- **Known limitation (ClinVar, for later):** ~1,242 ClinVar records came back with an empty
+  significance string (API stores some classifications under different keys). ClinVar is only
+  used in Milestone 5, so we note this and will refine the parser when we actually consume it.
+
+### How to run
+```bash
+make data        # or: python -m gvep.cli data
+# outputs: data/processed/{findlay_brca1.csv, clinvar_brca1.csv, example_windows.txt}
+```
+
+---
+
+## Milestone 2 — Core scoring engine
 *(not started)*

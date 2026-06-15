@@ -12,6 +12,7 @@
 pandas>=2.2
 numpy>=1.26
 biopython>=1.83          # FASTA/genome parsing, sequence utilities
+openpyxl>=3.1            # read the Findlay 2018 supplementary .xlsx
 requests>=2.31           # dataset / ClinVar downloads
 pyyaml>=6.0              # config files
 

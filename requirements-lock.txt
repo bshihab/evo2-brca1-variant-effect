@@ -15,14 +15,14 @@ charset-normalizer==3.4.7
 click==8.4.1
 contourpy==1.3.3
 cycler==0.12.1
+et_xmlfile==2.0.0
 fastapi==0.137.1
 fonttools==4.63.0
 frozenlist==1.8.0
 gitdb==4.0.12
 GitPython==3.1.50
 grpclib==0.4.9
-# Editable install with no version control (gvep==0.0.1)
--e /Users/captainbit/bilal-dev/evo2-brca1-variant-effect
+-e git+https://github.com/bshihab/evo2-brca1-variant-effect.git@5b43c51c18d0e6bd18d5126b1ff15f27ca2f4634#egg=gvep
 h11==0.16.0
 h2==4.3.0
 hpack==4.1.0
@@ -43,6 +43,7 @@ modal==1.5.0
 multidict==6.7.1
 narwhals==2.22.1
 numpy==2.4.6
+openpyxl==3.1.5
 packaging==26.2
 pandas==3.0.3
 pillow==12.2.0
