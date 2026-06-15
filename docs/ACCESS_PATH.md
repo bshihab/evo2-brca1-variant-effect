@@ -5,10 +5,16 @@ so the decision is reproducible and auditable later.*
 
 ## TL;DR decision
 
-**Run Evo 2 `1b_base` in bfloat16 (no FP8 / Transformer Engine) on a cloud NVIDIA GPU
-via Modal.** Apple Silicon cannot run the model locally. Weights are Apache-2.0. This is
-the cheapest path that still gives us the per-token log-likelihoods that delta-likelihood
-scoring requires, and it matches the "1B-first, free-tier" constraints.
+**Run Evo 2 `1b_base` with FP8 / Transformer Engine on a cloud NVIDIA GPU via Modal,
+default GPU = L4 (Ada, FP8-capable, cheap), H100 fallback.** Apple Silicon cannot run the
+model locally. Weights are Apache-2.0. Fits free-tier credits (~$1–2 for the full run).
+
+> **CORRECTION (Milestone 2 research, 2026-06-15):** The original plan below said "bf16,
+> no FP8." That does NOT work — the `evo2` package hard-requires Transformer Engine + FP8
+> to even load the 1B model (GitHub issue #208 errors without TE). FP8 hardware exists on
+> Ada/Hopper/Blackwell only (NOT Ampere — so A100/A10G are out). The fix is to embrace FP8
+> on an FP8-capable GPU. Modal's **L4 is Ada (compute 8.9) and supports FP8**, so we run the
+> 1B *properly* on a cheap GPU — better than the bf16 workaround. See "Scoring API" below.
 
 ## Constraints that drove the choice
 
@@ -65,10 +71,32 @@ All compatible with an open, MIT-licensed portfolio project, provided we attribu
 2. **7B / bf16** — also non-Hopper; likely better accuracy, more GPU time.
 3. **1B or 7B with FP8 on H100** — to reproduce published numbers exactly (costs more credit).
 
+## Scoring API (confirmed at Milestone 2)
+
+From the official Evo 2 BRCA1 notebook:
+```python
+from evo2.models import Evo2
+model = Evo2('evo2_1b_base')
+ref_scores = model.score_sequences(ref_seqs)   # list[str] -> per-seq log-likelihood
+var_scores = model.score_sequences(var_seqs)
+delta = np.array(var_scores) - np.array(ref_scores)
+auroc = roc_auc_score(brca1_df['class'] == 'LOF', -delta)   # published 1B AUROC ≈ 0.73
+```
+**Published 1B benchmark: AUROC ≈ 0.73** for LOF classification — our Milestone 3 sanity target.
+
+Install (from the evo2 README "full install", required for 1B):
+```bash
+conda install -c nvidia cuda-nvcc cuda-cudart-dev
+conda install -c conda-forge transformer-engine-torch=2.3.0
+pip install flash-attn==2.8.0.post2 --no-build-isolation
+pip install evo2
+```
+On Modal this becomes a micromamba image (see src/gvep/scoring/modal_app.py). The image build
+(TE + flash-attn) is the main risk and may need an iteration or two.
+
 ## Open item to verify at Milestone 2
-- Exact install incantation for `evo2` inside the Modal image (with bf16, skipping Transformer
-  Engine) and the precise API for extracting per-sequence log-likelihoods. Confirm against the
-  current Evo 2 repo README at build time, since it may have changed.
+- Whether `evo2` runs FP8 on the L4 (Ada) out of the box, or insists on Hopper. Mitigation:
+  GPU is a one-line parameter — same image runs on L4 or H100, so a fallback needs no rebuild.
 
 ## Sources
 - Evo 2 GitHub (requirements, model-size GPU notes): <https://github.com/ArcInstitute/evo2>

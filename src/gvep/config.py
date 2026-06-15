@@ -37,5 +37,8 @@ STRAND: str = "-"
 WINDOW_BP: int = 8192
 
 # --- Model / inference -----------------------------------------------------
-EVO2_MODEL: str = "evo2_1b_base"   # Apache-2.0; runs in bf16 (see docs/ACCESS_PATH.md)
-EVO2_DTYPE: str = "bfloat16"       # no FP8 / Transformer Engine
+# The evo2 package requires Transformer Engine + FP8 to load the 1B model, so we run
+# FP8 on an FP8-capable GPU. L4 (Ada, compute 8.9) supports FP8 and is cheap; H100 is the
+# fallback. GPU is a one-line parameter in scoring/modal_app.py. See docs/ACCESS_PATH.md.
+EVO2_MODEL: str = "evo2_1b_base"   # Apache-2.0
+MODAL_GPU: str = "L4"              # try L4 first; switch to "H100" if FP8 needs Hopper

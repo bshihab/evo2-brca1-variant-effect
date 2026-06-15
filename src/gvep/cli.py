@@ -31,7 +31,21 @@ def cmd_data(_args: argparse.Namespace) -> int:
 
 def cmd_score(_args: argparse.Namespace) -> int:
     """[Milestone 2] Run Evo 2 delta-likelihood scoring on Modal."""
-    return _not_yet("score", "Milestone 2")
+    print(
+        "Scoring runs on a Modal GPU, not locally. After `modal token new`, run:\n"
+        "  modal run -m gvep.scoring.modal_app::smoke   # cheap validation first\n"
+        "  modal run -m gvep.scoring.modal_app::main    # full dataset\n"
+        "Then: python -m gvep.cli sanity                # plot the distributions"
+    )
+    return 0
+
+
+def cmd_sanity(_args: argparse.Namespace) -> int:
+    """[Milestone 2] Plot delta distributions + quick AUROC (after scoring)."""
+    from gvep.analysis.sanity import run
+
+    run()
+    return 0
 
 
 def cmd_validate(_args: argparse.Namespace) -> int:
@@ -49,7 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("data", help="[M1] fetch + build datasets").set_defaults(func=cmd_data)
-    sub.add_parser("score", help="[M2] Evo 2 delta-likelihood scoring").set_defaults(func=cmd_score)
+    sub.add_parser("score", help="[M2] how to run Evo 2 scoring on Modal").set_defaults(func=cmd_score)
+    sub.add_parser("sanity", help="[M2] plot delta distributions + quick AUROC").set_defaults(func=cmd_sanity)
     sub.add_parser("validate", help="[M3] metrics + honesty layer").set_defaults(func=cmd_validate)
     return parser
 

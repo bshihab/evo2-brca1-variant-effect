@@ -4,7 +4,7 @@
 
 PY := .venv/bin/python
 
-.PHONY: help setup lock data score validate clean
+.PHONY: help setup lock data smoke score sanity validate clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -22,8 +22,14 @@ lock:  ## Freeze the resolved dependency versions for reproducibility
 data:  ## [Milestone 1] Fetch + build the variant datasets (Findlay, ClinVar, reference)
 	$(PY) -m gvep.cli data
 
-score:  ## [Milestone 2] Run Evo 2 delta-likelihood scoring on Modal (cloud GPU)
-	$(PY) -m gvep.cli score
+smoke:  ## [Milestone 2] Cheap Modal validation: load Evo 2 + score 2 seqs on the GPU
+	.venv/bin/modal run -m gvep.scoring.modal_app::smoke
+
+score:  ## [Milestone 2] Run Evo 2 delta-likelihood scoring on Modal (full dataset)
+	.venv/bin/modal run -m gvep.scoring.modal_app::main
+
+sanity:  ## [Milestone 2] Plot delta distributions + quick AUROC (after scoring)
+	$(PY) -m gvep.cli sanity
 
 validate:  ## [Milestone 3] Compute metrics + honesty/calibration analysis
 	$(PY) -m gvep.cli validate
