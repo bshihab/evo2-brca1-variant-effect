@@ -1,0 +1,14 @@
+# GPU-side dependencies for running Evo 2 on Modal.
+#
+# These are NOT installed locally on your Mac (no CUDA there). They are baked into
+# the Modal container image we will define in src/gvep/scoring/ during Milestone 2.
+# Pinned versions here are a starting point and will be confirmed against the Evo 2
+# repo when we build the image.
+#
+# Reference: Evo 2 needs Python 3.11/3.12, CUDA 12.1+, Torch 2.6/2.7.
+# We run the 1B model in bfloat16 (NO FP8 / Transformer Engine), so the heavy
+# Transformer Engine + Flash Attention build is intentionally avoided.
+
+# evo2          # installed from Arc Institute's package / repo inside the image
+# torch>=2.6    # provided by the CUDA base image
+# huggingface_hub  # pulls arcinstitute/evo2_1b_base weights (Apache-2.0)

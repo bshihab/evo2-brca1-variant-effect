@@ -1,0 +1,39 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- OS ---
+.DS_Store
+
+# --- Project data & artifacts (large / reproducible, not committed) ---
+# Raw downloads and model outputs are regenerable; we keep the loaders, not the bytes.
+data/raw/*
+data/processed/*
+data/cache/*
+!data/**/.gitkeep
+results/figures/*
+results/metrics/*
+!results/**/.gitkeep
+
+# Model weights (downloaded on the GPU side, never committed)
+*.pt
+*.safetensors
+*.ckpt
+
+# Modal / cloud
+.modal/

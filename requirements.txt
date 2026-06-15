@@ -1,0 +1,36 @@
+# Local (CPU / Apple Silicon) dependencies.
+#
+# This file covers everything that runs on your Mac: the data layer (Milestone 1),
+# analysis & plots (Milestone 3), the embedding classifier (Milestone 4), and the
+# demo app (Milestone 6). The actual Evo 2 model runs on a cloud GPU via Modal and
+# has its own pinned environment in requirements-modal.txt.
+#
+# Top-level deps use lower bounds for robustness; the exact resolved versions are
+# frozen into requirements-lock.txt for reproducible installs.
+
+# --- Data handling ---
+pandas>=2.2
+numpy>=1.26
+biopython>=1.83          # FASTA/genome parsing, sequence utilities
+requests>=2.31           # dataset / ClinVar downloads
+pyyaml>=6.0              # config files
+
+# --- ML / analysis (zero-shot eval + Milestone 4 classifier) ---
+scikit-learn>=1.4        # metrics (AUROC/AUPRC), logistic regression, CV
+scipy>=1.12
+
+# --- Plotting (Milestone 3 honesty layer) ---
+matplotlib>=3.8
+seaborn>=0.13
+
+# --- Cloud GPU orchestration ---
+modal>=0.64              # serverless GPU for Evo 2 inference
+
+# --- Demo app (Milestone 6) ---
+fastapi>=0.110
+uvicorn>=0.29
+streamlit>=1.33
+
+# --- Dev quality of life ---
+tqdm>=4.66
+python-dotenv>=1.0

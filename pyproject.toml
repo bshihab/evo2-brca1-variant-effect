@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gvep"
+version = "0.0.1"
+description = "Zero-shot genomic variant effect prediction for hereditary cancer risk (BRCA1) using the Evo 2 foundation model. Research/triage tool — NOT a clinical diagnostic."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Bilal Shihab" }]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Reproducibility: a single global seed is defined in gvep.config and applied via
+# gvep.utils.seed.set_seed(). See NOTES.md for why deterministic seeding matters here.
