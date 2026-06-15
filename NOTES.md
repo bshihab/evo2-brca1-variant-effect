@@ -113,4 +113,44 @@ make data        # or: python -m gvep.cli data
 ---
 
 ## Milestone 2 — Core scoring engine
+
+**Date:** 2026-06-15 (engine built; awaiting first Modal run for results)
+
+### What this milestone is
+Stand up Evo 2 1B on a cloud GPU and compute the zero-shot signal for every variant:
+`delta = score_sequences(var_window) - score_sequences(ref_window)`. Then the first sanity
+check: are LOF deltas more negative than FUNC deltas?
+
+### Research before coding (and a correction to Milestone 0)
+- **Scoring API confirmed** (from the official BRCA1 notebook): `model = Evo2('evo2_1b_base')`,
+  then `model.score_sequences(list_of_seqs)` → one log-likelihood per sequence. Delta is the
+  difference. **Published 1B benchmark: AUROC ≈ 0.73** — our sanity target.
+- **CORRECTION:** Milestone 0 planned "1B in bf16, no FP8." That is impossible — the `evo2`
+  package hard-requires Transformer Engine + FP8 to load the 1B model (GitHub issue #208
+  errors without TE). FP8 hardware = Ada/Hopper/Blackwell only (NOT Ampere; A100/A10G are out).
+- **Resolution:** embrace FP8 on an FP8-capable GPU. Modal's **L4 is Ada (compute 8.9) and
+  supports FP8** — cheap *and* correct. H100 is the fallback. GPU is a one-line parameter, so
+  switching needs no image rebuild.
+
+### Engineering decisions
+- **Modal micromamba image** mirrors the evo2 README "full install" (cuda-nvcc, TE 2.3.0 from
+  conda-forge, flash-attn 2.8.0.post2, then `pip install evo2`). The TE + flash-attn build is
+  the fragile part and may need iteration — that's expected.
+- **Weights + reference cached on a Modal Volume** (`evo2-cache`) so the ~3.4 GB downloads once.
+- **Ref-window dedup:** reference windows depend only on position, and ~3 alts share each
+  position, so we score ~1/3 as many reference windows (≈1,300 unique refs + 3,893 vars instead
+  of 7,786). Pure compute/cost saving with no effect on results.
+- **Data transfer kept tiny:** only the small variant table (pos/ref/alt) is sent to the
+  container; the 64 MB of window strings are rebuilt remotely via our `build_window()`.
+- **Two entrypoints:** `smoke` (load model + score 4 seqs — cheap GPU/FP8 validation) and
+  `main` (full dataset → `data/cache/evo2_delta_scores.csv`).
+
+### Status / next
+Engine + sanity plot coded and committed. Pending: Modal auth, a smoke run to confirm the
+image + L4 FP8 work, then the full scoring run and the distribution plot. Results + plot will
+be filled in here once the run completes.
+
+---
+
+## Milestone 3 — Validation & honesty layer
 *(not started)*
