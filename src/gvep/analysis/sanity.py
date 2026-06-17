@@ -78,7 +78,7 @@ def run() -> None:
     ax1.legend()
 
     sns.boxplot(data=df[df["class"].isin(order)], x="class", y="delta",
-                order=order, palette=palette, ax=ax2)
+                order=order, hue="class", palette=palette, legend=False, ax=ax2)
     ax2.set_title(f"AUROC LOF vs FUNC = {auroc_clean:.3f}  (ref ~0.73)")
     ax2.axhline(0, color="gray", ls="--", lw=1)
 

@@ -145,10 +145,37 @@ check: are LOF deltas more negative than FUNC deltas?
 - **Two entrypoints:** `smoke` (load model + score 4 seqs — cheap GPU/FP8 validation) and
   `main` (full dataset → `data/cache/evo2_delta_scores.csv`).
 
-### Status / next
-Engine + sanity plot coded and committed. Pending: Modal auth, a smoke run to confirm the
-image + L4 FP8 work, then the full scoring run and the distribution plot. Results + plot will
-be filled in here once the run completes.
+### Results (run completed)
+- **Scored all 3,893 variants** on a Modal **L4** (FP8). ~75 min, ~$1.
+- **Quick AUROC (LOF vs FUNC) = 0.737; LOF vs rest = 0.729.** The published Evo 2 1B
+  benchmark is **~0.73 — we reproduced it almost exactly.** Strong end-to-end validation
+  that the data layer, coordinates/build, windows, FP8-on-L4, and delta scoring are all correct.
+- Median delta steps down by class exactly as expected: **FUNC −0.0001 > INT −0.0003 >
+  LOF −0.0006** (more negative = more disruptive). Direction check ✅.
+- Plot: `results/figures/m2_delta_distributions.png` — FUNC tightly peaked at 0, LOF shifted
+  left with a heavy disruptive tail, INT in between.
+
+### Note on the tiny absolute delta values
+`score_sequences` returns the **mean** log-likelihood per token (averaged over 8,192 tokens),
+so a single-base change moves the average by a tiny amount (~1e-3). The *absolute* numbers look
+small, but what matters for classification is the **separation** between classes — and AUROC
+0.73 confirms that separation is real and on par with the published result.
+
+### Gotchas encountered (worth remembering)
+- The `evo2` package **requires FP8/Transformer Engine**; the Modal image needed Python 3.12 +
+  **CUDA 12.9** + `transformer-engine-torch=2.3.0` (the solver dictated the exact versions), plus
+  `ca-certificates` for the HuggingFace download to verify SSL.
+- **L4 (Ada) runs the 1B fine in FP8** — no Hopper needed.
+- **Resilience matters:** the first full run died when the Modal **free-tier budget** was hit
+  mid-run (not the Mac sleeping, as first assumed). Fixed by (a) persisting results to a Modal
+  Volume + committing, and (b) running with `--detach` so a dropped local connection can't kill
+  it. Recovery path: `modal run -m gvep.scoring.modal_app::fetch`.
+
+### How to run
+```bash
+modal run --detach -m gvep.scoring.modal_app::main   # full scoring (writes to Volume + local)
+python -m gvep.cli sanity                            # plot + quick AUROC
+```
 
 ---
 

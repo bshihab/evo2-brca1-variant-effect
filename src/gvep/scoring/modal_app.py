@@ -38,18 +38,42 @@ SCORE_BATCH = int(os.environ.get("GVEP_BATCH", "8"))  # sequences per score call
 # Mirrors the evo2 README "full install" (required for the 1B model). The TE +
 # flash-attn build is the fragile part; if it fails we iterate on this block.
 image = (
+    # Python 3.12: transformer-engine-torch 2.3.0 on conda-forge ships only for
+    # python 3.10 or 3.12 (the build solver confirmed 3.11 is unavailable).
     modal.Image.micromamba(python_version="3.12")
-    .micromamba_install("cuda-nvcc", "cuda-cudart-dev", channels=["nvidia"])
-    .micromamba_install("transformer-engine-torch=2.3.0", channels=["conda-forge"])
+    # Image builds run on a CPU-only machine, so conda can't "see" a GPU and refuses
+    # to select CUDA-enabled PyTorch. This tells it to assume CUDA 12.9 is present.
+    .env({"CONDA_OVERRIDE_CUDA": "12.9"})
+    # One combined solve so cuda-nvcc, the CUDA runtime, PyTorch, and Transformer
+    # Engine all land on a mutually-compatible set. TE 2.3.0 specifically requires
+    # CUDA 12.9 (cuda-cudart >=12.9.37,<13), so we pin cuda-version to match.
+    .micromamba_install(
+        "cuda-nvcc", "cuda-cudart-dev", "cuda-version=12.9",
+        "transformer-engine-torch=2.3.0",
+        channels=["conda-forge", "nvidia"],
+    )
     .pip_install("flash-attn==2.8.0.post2", extra_options="--no-build-isolation")
     .pip_install("evo2", "biopython", "requests", "tqdm", "numpy", "pandas")
-    .env({"HF_HOME": "/cache/hf"})  # cache model weights on the Volume
+    # Separate, cheap layer (keeps the heavy layers above cached): CA bundle so
+    # HTTPS to huggingface.co verifies inside the fresh container.
+    .micromamba_install("ca-certificates", channels=["conda-forge"])
+    .env({
+        "HF_HOME": "/cache/hf",  # cache model weights on the Volume
+        # Point Python/httpx/requests at the conda CA bundle (the fresh container
+        # has no system CA path configured, which broke the HF model download).
+        "SSL_CERT_FILE": "/opt/conda/ssl/cacert.pem",
+        "REQUESTS_CA_BUNDLE": "/opt/conda/ssl/cacert.pem",
+    })
     .add_local_python_source("gvep")  # reuse our window-building code remotely
 )
 
 app = modal.App("evo2-brca1-scoring", image=image)
 # Persisted across runs so the ~3.4 GB of weights + reference download once.
 cache = modal.Volume.from_name("evo2-cache", create_if_missing=True)
+
+# Results are written HERE on the Volume (server-side) so they survive a dropped
+# local connection (e.g. the Mac sleeping). We then fetch them in a quick call.
+RESULTS_PATH = "/cache/results/raw_scores.csv"
 
 
 # --- Remote helpers (run inside the GPU container) -------------------------
@@ -79,9 +103,17 @@ def _score_all(model, seqs: list[str]) -> list[float]:
     return out
 
 
-@app.function(gpu=GPU, volumes={"/cache": cache}, timeout=7200)
-def score_variants(records: list[dict]) -> list[dict]:
-    """Score every variant. `records` = [{idx, pos, ref, alt}, ...] (1-based pos)."""
+@app.function(gpu=GPU, volumes={"/cache": cache}, timeout=14400)
+def score_variants(records: list[dict]) -> int:
+    """Score every variant and persist results to the Volume. Returns row count.
+
+    `records` = [{idx, pos, ref, alt}, ...] (1-based pos). Results are written to
+    RESULTS_PATH on the Volume and committed BEFORE returning, so they're safe even
+    if the local connection drops and the return value never gets delivered.
+    """
+    import csv
+    import os
+
     from evo2.models import Evo2
 
     from gvep.data.windows import build_window
@@ -109,7 +141,26 @@ def score_variants(records: list[dict]) -> list[dict]:
     for r, vs in zip(records, var_scores):
         rs = ref_scores[r["pos"]]
         results.append({**r, "ref_score": rs, "var_score": vs, "delta": vs - rs})
-    return results
+
+    # Persist to the Volume and commit so the results survive a dropped connection.
+    os.makedirs(os.path.dirname(RESULTS_PATH), exist_ok=True)
+    with open(RESULTS_PATH, "w", newline="") as fh:
+        writer = csv.DictWriter(
+            fh, fieldnames=["idx", "pos", "ref", "alt", "ref_score", "var_score", "delta"]
+        )
+        writer.writeheader()
+        writer.writerows(results)
+    cache.commit()
+    print(f"[remote] ✅ wrote {len(results):,} rows to {RESULTS_PATH} on the Volume")
+    return len(results)
+
+
+@app.function(volumes={"/cache": cache})
+def get_results() -> str:
+    """Return the raw scores CSV text from the Volume (recovery / fetch path)."""
+    cache.reload()
+    with open(RESULTS_PATH) as fh:
+        return fh.read()
 
 
 @app.function(gpu=GPU, volumes={"/cache": cache}, timeout=1800)
@@ -136,12 +187,39 @@ def smoke():
     print(f"   deltas (sanity, should be finite numbers): {result['deltas']}")
 
 
-@app.local_entrypoint()
-def main():
-    """`modal run -m gvep.scoring.modal_app::main` — score the full Findlay dataset."""
+def _save_from_volume() -> None:
+    """Fetch raw scores from the Volume, join with the Findlay table, save locally.
+
+    Used by both `main` (after scoring) and `fetch` (recovery, no re-scoring). The
+    fetch itself is a tiny, fast call, so it's robust even on a flaky connection.
+    """
+    import io
+
     import pandas as pd
 
     from gvep.config import CACHE_DIR
+    from gvep.data.build import FINDLAY_OUT
+
+    raw = get_results.remote()
+    scores = pd.read_csv(io.StringIO(raw)).set_index("idx")
+    df = pd.read_csv(FINDLAY_OUT)
+    out = df.join(scores[["ref_score", "var_score", "delta"]])
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    dest = CACHE_DIR / "evo2_delta_scores.csv"
+    out.to_csv(dest, index=False)
+    print(f"\n✅ wrote {dest}  ({len(out):,} rows)")
+    print(out[["pos", "ref", "alt", "class", "delta"]].head().to_string(index=False))
+
+
+@app.local_entrypoint()
+def main():
+    """Score the full dataset. Run DETACHED so a sleeping Mac can't kill it:
+        modal run --detach -m gvep.scoring.modal_app::main
+    Results are persisted to the Volume; if your connection drops, recover with:
+        modal run -m gvep.scoring.modal_app::fetch
+    """
+    import pandas as pd
+
     from gvep.data.build import FINDLAY_OUT
 
     df = pd.read_csv(FINDLAY_OUT)
@@ -149,13 +227,13 @@ def main():
         {"idx": int(i), "pos": int(row.pos), "ref": row.ref, "alt": row.alt}
         for i, row in df.iterrows()
     ]
-    print(f"Scoring {len(records):,} variants on {GPU} via Modal...")
-    results = score_variants.remote(records)
+    print(f"Scoring {len(records):,} variants on {GPU} via Modal (detached-safe)...")
+    score_variants.remote(records)  # computes + persists to the Volume
+    _save_from_volume()             # then pull results down + join + save locally
 
-    scores = pd.DataFrame(results).set_index("idx")
-    out = df.join(scores[["ref_score", "var_score", "delta"]])
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    dest = CACHE_DIR / "evo2_delta_scores.csv"
-    out.to_csv(dest, index=False)
-    print(f"\n✅ wrote {dest}  ({len(out):,} rows)")
-    print(out[["pos", "ref", "alt", "class", "delta"]].head().to_string(index=False))
+
+@app.local_entrypoint()
+def fetch():
+    """`modal run -m gvep.scoring.modal_app::fetch` — recover results from the Volume
+    (e.g. if the scoring run completed server-side but the local connection dropped)."""
+    _save_from_volume()

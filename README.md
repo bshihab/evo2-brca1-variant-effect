@@ -50,8 +50,8 @@ rationale, hardware findings, and licensing are documented in
 |---|---|---|
 | 0 | Scaffolding, primer, access-path research | ✅ done |
 | 1 | Data layer (Findlay + ClinVar + reference) | ✅ done |
-| 2 | Core zero-shot scoring engine | ⬜ next |
-| 3 | Validation + honesty layer | ⬜ |
+| 2 | Core zero-shot scoring engine | ✅ done (AUROC 0.74, matches published ~0.73) |
+| 3 | Validation + honesty layer | ⬜ next |
 | 4 | Embedding-based classifier | ⬜ |
 | 5 | Explanation layer | ⬜ |
 | 6 | Demo app + packaging | ⬜ |
