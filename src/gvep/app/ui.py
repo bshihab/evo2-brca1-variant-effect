@@ -60,29 +60,35 @@ def main() -> None:
     tab1, tab2 = st.tabs(["🔎 Explain a variant", "📋 VUS prioritization"])
 
     with tab1:
-        st.markdown("Enter a BRCA1 SNV (GRCh37 / hg19, chromosome 17).")
+        st.markdown("Pick a position on BRCA1 (GRCh37 / hg19, chromosome 17). The app shows the "
+                    "**reference allele** there automatically — you just choose the mutation.")
         examples = {
-            "— pick an example —": None,
-            "Splice variant, model confident & correct": (41267740, "T", "A"),
-            "Pathogenic start-codon (model MISSES it)": (41276111, "C", "G"),
-            "Benign synonymous": (41276108, "A", "G"),
-            "Nonsense / stop-gain (can't be graded)": (41197777, "C", "T"),
+            "— pick an example position —": 41276111,
+            "Splice site (model confident & correct)": 41267740,
+            "Start codon (pathogenic — model MISSES it)": 41276111,
+            "Benign synonymous region": 41276108,
+            "Stop-gain / nonsense": 41197777,
         }
-        pick = st.selectbox("Example variants", list(examples))
-        d = examples[pick] or (41276111, "C", "G")
-        col = st.columns(4)
-        pos = col[0].number_input("Position (hg19)", value=int(d[0]), step=1)
-        ref = col[1].text_input("Ref allele", value=d[1]).upper()
-        alt = col[2].text_input("Alt allele", value=d[2]).upper()
-        col[3].markdown("&nbsp;")
-        if col[3].button("Explain", type="primary"):
-            e = explain_variant(int(pos), ref, alt)
-            if e is None:
-                st.warning(f"chr17:{pos} {ref}>{alt} is not in the scored BRCA1 set "
-                           "(only the ~3,900 Findlay benchmark variants are available "
-                           "in this demo).")
-            else:
-                _show_explanation(e)
+        pick = st.selectbox("Jump to an example", list(examples))
+        pos = st.number_input("Position (hg19, chr17)", value=int(examples[pick]), step=1)
+
+        rows = df[df["pos"] == int(pos)]
+        if rows.empty:
+            st.info(f"No scored variants at chr17:{int(pos)}. This demo only covers the "
+                    "~3,900 Findlay benchmark positions — try an example above.")
+        else:
+            ref = rows.iloc[0]["ref"]
+            cons = rows.iloc[0]["consequence"]
+            st.markdown(f"**Reference allele at chr17:{int(pos)}:** `{ref}`  ·  *{cons}*")
+            alt = st.selectbox(
+                "Choose the mutation (alternate allele)",
+                sorted(rows["alt"].unique()),
+                format_func=lambda a: f"{ref} → {a}",
+            )
+            if st.button("Explain", type="primary"):
+                e = explain_variant(int(pos), ref, alt)
+                if e:
+                    _show_explanation(e)
 
     with tab2:
         st.markdown("Variants of Uncertain Significance (from ClinVar) that we have "
