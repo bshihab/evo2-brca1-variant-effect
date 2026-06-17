@@ -34,5 +34,14 @@ sanity:  ## [Milestone 2] Plot delta distributions + quick AUROC (after scoring)
 validate:  ## [Milestone 3] Compute metrics + honesty/calibration analysis
 	$(PY) -m gvep.cli validate
 
+explain:  ## [Milestone 5] Demo per-variant trust-aware explanations
+	$(PY) -m gvep.cli explain
+
+api:  ## [Milestone 6] Serve the FastAPI backend (http://localhost:8000/docs)
+	.venv/bin/uvicorn gvep.app.api:app --reload
+
+ui:  ## [Milestone 6] Launch the Streamlit demo UI
+	.venv/bin/streamlit run src/gvep/app/ui.py
+
 clean:  ## Remove generated data/results (keeps raw downloads)
 	rm -rf data/processed/* data/cache/* results/figures/* results/metrics/*

@@ -266,4 +266,32 @@ stay free + reproducible.
 ---
 
 ## Milestone 6 — Demo app + packaging
-*(not started)*
+
+**Date:** 2026-06-17
+
+### What this milestone is
+Wrap everything in a usable interface and polish the repo for a portfolio/employer audience.
+
+### Built
+- **`gvep/app/api.py` (FastAPI):** `/health`, `/explain?pos=&ref=&alt=`, `/prioritize?top=`.
+  Tested end-to-end with TestClient (explain, 404 handling, prioritize all pass).
+- **`gvep/app/ui.py` (Streamlit):** two tabs — "Explain a variant" (with example presets,
+  metrics, color-coded confidence badge) and "VUS prioritization" (ranked triage table).
+  Boots clean headless (HTTP 200).
+- **README polished:** problem statement, approach, **key results & honest limitations**,
+  model access path, demo how-to, **what I learned**, attribution, not-a-diagnostic disclaimer.
+- Makefile targets: `data/sanity/validate/explain/api/ui`. Added `httpx` dep (TestClient).
+
+### Design note
+The Streamlit UI calls `gvep.explain` directly (self-contained, robust for a local demo);
+the identical logic is also exposed over HTTP via FastAPI as the "API" deliverable.
+
+### Run
+```bash
+make api    # http://localhost:8000/docs
+make ui     # Streamlit demo
+```
+
+### Project status
+Milestones 0–3, 5, 6 complete; Milestone 4 (embedding classifier) deferred on cloud budget
+(engine built + smoke-tested). The project is a complete, honest, runnable POC.

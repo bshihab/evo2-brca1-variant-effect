@@ -133,6 +133,29 @@ def format_explanation(e: dict) -> str:
     return "\n".join(lines)
 
 
+def prioritize(records: list[tuple[int, str, str]] | None = None, top: int = 25) -> list[dict]:
+    """Rank variants by predicted disruptiveness — the VUS-triage view.
+
+    With no `records`, ranks the real Variants of Uncertain Significance from ClinVar
+    that we also have Evo 2 scores for (the actual triage use case). Returns the top-N,
+    each with its explanation fields, sorted most-disruptive first.
+    """
+    df, _, _ = _context()
+    if records is None:
+        sub = df[df["clinvar"].astype(str).str.contains("ncertain", na=False)]
+        keys = list(zip(sub["pos"], sub["ref"], sub["alt"]))
+    else:
+        keys = [(int(p), r, a) for p, r, a in records]
+
+    out = []
+    for pos, ref, alt in keys:
+        e = explain_variant(pos, ref, alt)
+        if e:
+            out.append(e)
+    out.sort(key=lambda e: e["prob_disruptive"], reverse=True)
+    return out[:top]
+
+
 def _demo_variants(df) -> list[tuple[int, str, str]]:
     """Pick a few variants that showcase the range of trust tiers."""
     picks = []

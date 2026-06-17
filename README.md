@@ -40,9 +40,27 @@ function, well enough to help **triage** which VUS deserve expert attention firs
 ## Model access path
 
 Evo 2 runs on a **cloud NVIDIA GPU via Modal** (the model is CUDA-only; Apple Silicon cannot
-run it locally). We use the **1B model in bfloat16** to stay within free-tier budget. Full
-rationale, hardware findings, and licensing are documented in
+run it locally). We use the **1B model with FP8** on a cheap L4 GPU to stay within free-tier
+budget. Full rationale, hardware findings, and licensing are documented in
 **[docs/ACCESS_PATH.md](docs/ACCESS_PATH.md)**.
+
+## Key results & honest limitations
+
+The point of this project is not the headline number — it's the rigorous, honest accounting of
+where the model works and fails (full writeup: **[RESULTS.md](RESULTS.md)**).
+
+- **Reproduced the published benchmark:** zero-shot AUROC **0.737** (LOF vs FUNC), matching the
+  reported Evo 2 1B ≈ 0.73 — validating the whole pipeline.
+- **The aggregate hides the important weakness:** within **missense** variants (the bulk of real
+  VUS) AUROC drops to **0.604** — the pooled number was inflated by easy between-category signal.
+- **Poor precision under imbalance:** at 90% sensitivity, ~**2.9 false alarms per true hit**.
+- **Severity-dependent failure:** worse on mild (0.70) than severe (0.78) loss-of-function.
+- **Honest benchmark:** the 1B zero-shot score is **beaten by CADD (0.82) and even conservation
+  (phyloP, 0.79)** on this dataset — with fair caveats (1B is the budget model; the 40B scores
+  ~0.87+; Evo 2 is zero-shot vs. their supervised training).
+
+The explanation layer turns this into per-variant **category-aware confidence**: e.g. a confident
+missense prediction is flagged "low trust — do not rely," because that's where the model is weakest.
 
 ## Status
 
@@ -54,29 +72,57 @@ rationale, hardware findings, and licensing are documented in
 | 3 | Validation + honesty layer | ✅ done (see [RESULTS.md](RESULTS.md)) |
 | 4 | Embedding-based classifier | ⏸️ deferred (engine ready; paused on cloud budget) |
 | 5 | Explanation layer | ✅ done (trust-aware per-variant explanations) |
-| 6 | Demo app + packaging | ⬜ next |
+| 6 | Demo app + packaging | ✅ done (FastAPI + Streamlit) |
 
 ## Quickstart
 
 ```bash
-make setup     # create venv + install local deps
-make lock      # freeze exact versions for reproducibility
-make help      # see all milestone entry points
+make setup      # create venv + install local deps
+make data       # [M1] fetch + build datasets (CPU, ~1 min)
+# [M2] scoring runs on a Modal GPU (see docs/ACCESS_PATH.md):
+#   modal run --detach -m gvep.scoring.modal_app::main
+make sanity     # [M2] delta distributions + quick AUROC
+make validate   # [M3] honesty layer -> RESULTS.md + results/figures/
+make explain    # [M5] demo per-variant trust-aware explanations
+make api        # [M6] FastAPI backend at http://localhost:8000/docs
+make ui         # [M6] Streamlit demo UI
 ```
 
-(Data/scoring/validation targets come online as each milestone lands.)
+## Demo
+
+- **API:** `make api` → interactive docs at `http://localhost:8000/docs`.
+  - `GET /explain?pos=41267740&ref=T&alt=A` → trust-aware explanation
+  - `GET /prioritize?top=20` → VUS triage queue ranked by predicted disruptiveness
+- **UI:** `make ui` → enter a variant and see score + calibrated probability + category-aware
+  confidence, plus a VUS-prioritization table. (Operates on the ~3,900 benchmark variants.)
+
+## What I learned
+
+- **Foundation-model variant scoring end to end:** Evo 2 access paths, FP8/Transformer-Engine
+  hardware constraints, zero-shot delta-likelihood scoring, and embedding extraction.
+- **Cloud GPU engineering on a budget:** building a finicky CUDA image on Modal, caching weights
+  on a Volume, and making jobs **resilient** (server-side persistence + `--detach`) after budget
+  caps and dropped connections taught hard lessons.
+- **Evaluation rigor as the real product:** AUROC vs AUPRC, bootstrap CIs, stratified evaluation,
+  calibration (and catching a base-rate-collapse bug), operating points, and class-imbalance
+  honesty — plus benchmarking against established tools instead of grading on a curve.
+- **Responsible ML framing:** separating *prediction* from *confidence*, and refusing to claim a
+  confidence the data can't support.
 
 ## Repository layout
 
 ```
 src/gvep/          installable package
-  data/            dataset fetchers + loaders (Milestone 1)
-  scoring/         Evo 2 / Modal delta-likelihood engine (Milestone 2)
-  analysis/        metrics, calibration, honesty layer (Milestone 3+)
+  data/            dataset fetchers + loaders (M1)
+  scoring/         Evo 2 / Modal delta-likelihood + embedding engine (M2, M4)
+  analysis/        metrics, calibration, honesty layer, classifier (M3, M4)
+  explain.py       trust-aware per-variant explanation layer (M5)
+  app/             FastAPI backend + Streamlit UI (M6)
   utils/           seeding, config helpers
 data/              raw/ processed/ cache/  (gitignored; regenerable)
-results/           figures/ metrics/       (gitignored; regenerable)
-docs/              ACCESS_PATH.md and other design notes
+results/           figures/ + metrics/ (key plots committed for portfolio)
+docs/              ACCESS_PATH.md (Evo 2 access + hardware decision record)
+RESULTS.md         the honesty-layer findings writeup (M3)
 NOTES.md           running biology + ML learning log
 PRIMER.md          newcomer's conceptual primer
 ```
