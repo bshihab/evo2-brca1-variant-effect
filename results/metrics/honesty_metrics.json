@@ -1,0 +1,117 @@
+{
+  "headline": {
+    "auroc_lof_vs_func": 0.7366513860850081,
+    "auroc_ci": [
+      0.715350660195087,
+      0.7568835787680893
+    ],
+    "auprc_lof_vs_func": 0.5642560230948692,
+    "auprc_baseline": 0.22585071350164654,
+    "auroc_lof_vs_rest": 0.7286819097525934,
+    "n_clean": 3644
+  },
+  "operating_point": {
+    "target_sensitivity": 0.9,
+    "threshold": -6.42538070678711e-05,
+    "overall_fpr": 0.771357674583481,
+    "precision": 0.2540281110730202
+  },
+  "by_consequence": [
+    {
+      "consequence": "5' UTR",
+      "n": 45,
+      "pct_lof": 0.0,
+      "auroc": null,
+      "fpr": 0.8
+    },
+    {
+      "consequence": "Canonical splice",
+      "n": 135,
+      "pct_lof": 0.9481481481481482,
+      "auroc": null,
+      "fpr": 0.5714285714285714
+    },
+    {
+      "consequence": "Intronic",
+      "n": 465,
+      "pct_lof": 0.01935483870967742,
+      "auroc": 0.6286549707602339,
+      "fpr": 0.7478070175438597
+    },
+    {
+      "consequence": "Missense",
+      "n": 1917,
+      "pct_lof": 0.2300469483568075,
+      "auroc": 0.6035202698965765,
+      "fpr": 0.7953929539295393
+    },
+    {
+      "consequence": "Nonsense",
+      "n": 136,
+      "pct_lof": 1.0,
+      "auroc": null,
+      "fpr": null
+    },
+    {
+      "consequence": "Splice region",
+      "n": 414,
+      "pct_lof": 0.2463768115942029,
+      "auroc": 0.8515271493212669,
+      "fpr": 0.8108974358974359
+    },
+    {
+      "consequence": "Synonymous",
+      "n": 532,
+      "pct_lof": 0.013157894736842105,
+      "auroc": null,
+      "fpr": 0.700952380952381
+    }
+  ],
+  "by_region": {
+    "coding": {
+      "n": 2585,
+      "auroc": 0.6790414724144778
+    },
+    "non-coding": {
+      "n": 1059,
+      "auroc": 0.8851362383916725
+    }
+  },
+  "by_snv": {
+    "transition": {
+      "n": 1233,
+      "auroc": 0.7374294532627865
+    },
+    "transversion": {
+      "n": 2411,
+      "auroc": 0.7322809807281857
+    }
+  },
+  "calibration": {
+    "brier": 0.17482406819793356
+  },
+  "severity": {
+    "severe": {
+      "n_lof": 412,
+      "auroc": 0.774956721950145
+    },
+    "mild": {
+      "n_lof": 411,
+      "auroc": 0.698252849889299
+    }
+  },
+  "benchmark_all": {
+    "Evo 2 (\u0394, zero-shot)": 0.7366513860850081,
+    "CADD": 0.8167859264163109,
+    "phyloP": 0.7926738921721872,
+    "SIFT": 0.7079761443872942,
+    "PolyPhen-2": 0.6687721610776198
+  },
+  "benchmark_missense": {
+    "Evo 2 (\u0394, zero-shot)": 0.6035202698965765,
+    "CADD": 0.7560138328140651,
+    "phyloP": 0.7373078861174098,
+    "SIFT": 0.7079761443872942,
+    "PolyPhen-2": 0.6687721610776198
+  }
+}

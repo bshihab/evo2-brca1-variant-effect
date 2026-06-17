@@ -50,7 +50,10 @@ def cmd_sanity(_args: argparse.Namespace) -> int:
 
 def cmd_validate(_args: argparse.Namespace) -> int:
     """[Milestone 3] Compute metrics + honesty/calibration analysis."""
-    return _not_yet("validate", "Milestone 3")
+    from gvep.analysis.honesty import run
+
+    run()
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:

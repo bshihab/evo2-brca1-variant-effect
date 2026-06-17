@@ -180,4 +180,44 @@ python -m gvep.cli sanity                            # plot + quick AUROC
 ---
 
 ## Milestone 3 — Validation & honesty layer
+
+**Date:** 2026-06-17
+
+### What this milestone is
+The centerpiece: go *beyond* the headline AUROC and honestly characterize where the 1B
+zero-shot model works and fails. Full writeup in **RESULTS.md**; code in
+`analysis/honesty.py` + `analysis/dataset.py`; run via `python -m gvep.cli validate`.
+
+### Data win
+The raw Findlay xlsx has 62 columns, including `consequence` (missense/splice/intronic/…),
+and bundled scores for **CADD, phyloP, SIFT, PolyPhen-2** — so we could stratify by category
+*and* benchmark Evo 2 against established tools for free.
+
+### Headline findings (honest, not flattering)
+- **AUROC 0.737 (CI 0.715–0.757)** reproduces the published 1B number; AUPRC 0.564 (baseline 0.226).
+- **The aggregate is inflated by between-category structure.** Within **missense** (the bulk of
+  real VUS) AUROC collapses to **0.604**; the model's relative strength is **splice region (0.852)**.
+  Several categories aren't even evaluable (one class absent — e.g. all Nonsense are LOF).
+- **At 90% sensitivity: FPR 77%, precision 25% → ~2.9 false alarms per true LOF.** Class-imbalance
+  honesty in one number.
+- **Severity failure mode:** severe LOF 0.775 vs mild LOF 0.698 (degrades 0.077 on subtle variants).
+- **Benchmark (humbling):** Evo 2 1B (0.737) is **beaten by CADD (0.817) and phyloP (0.793)**, and on
+  missense trails every classic tool (0.604 vs CADD 0.756 / phyloP 0.737 / SIFT 0.708 / PolyPhen 0.669).
+
+### Caveats kept honest
+- Used the **1B budget model**; published 40B is ~0.87+ on BRCA1 — much of the gap is size.
+- Evo 2 is **zero-shot**; CADD/SIFT/PolyPhen are supervised (possible circularity). But phyloP is
+  unsupervised conservation and still beats the 1B — the most sobering comparison.
+
+### ML concepts exercised
+AUROC vs AUPRC, bootstrap CIs, operating point at fixed sensitivity, FPR/precision under
+imbalance, calibration (CV logistic recalibration + Brier + reliability diagram), stratified
+evaluation, and "AUROC not computable when a stratum is single-class."
+
+### Figures (committed for the portfolio)
+`m3_roc_pr.png`, `m3_by_consequence.png`, `m3_calibration.png`, `m3_severity_benchmark.png`.
+
+---
+
+## Milestone 4 — Embedding-based classifier
 *(not started)*
