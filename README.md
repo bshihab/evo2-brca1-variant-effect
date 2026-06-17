@@ -52,9 +52,9 @@ rationale, hardware findings, and licensing are documented in
 | 1 | Data layer (Findlay + ClinVar + reference) | ✅ done |
 | 2 | Core zero-shot scoring engine | ✅ done (AUROC 0.74, matches published ~0.73) |
 | 3 | Validation + honesty layer | ✅ done (see [RESULTS.md](RESULTS.md)) |
-| 4 | Embedding-based classifier | ⬜ next |
-| 5 | Explanation layer | ⬜ |
-| 6 | Demo app + packaging | ⬜ |
+| 4 | Embedding-based classifier | ⏸️ deferred (engine ready; paused on cloud budget) |
+| 5 | Explanation layer | ✅ done (trust-aware per-variant explanations) |
+| 6 | Demo app + packaging | ⬜ next |
 
 ## Quickstart
 

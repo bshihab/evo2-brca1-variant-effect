@@ -1,0 +1,47 @@
+──────────────────────────────────────────────────────────────────
+ VARIANT  chr17:41276111 C>G   (BRCA1, Missense, p.M1I)
+──────────────────────────────────────────────────────────────────
+ Evo 2 zero-shot delta   : -0.000345
+ Estimated P(disruptive) : 19%
+ PREDICTION              : LIKELY TOLERATED (benign-leaning)
+
+ ⚠ CONFIDENCE: LOW
+   This is a MISSENSE variant — the model is weak here (benchmark AUROC 0.60 — not far above chance); do not rely on this prediction. Category false-alarm rate at high sensitivity is 80%.
+
+ ClinVar                 : Pathogenic
+ Findlay experiment      : LOF  (benchmark ground truth)
+
+ NOTE: research/triage prototype — NOT a clinical diagnostic.
+──────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────
+ VARIANT  chr17:41267740 T>A   (BRCA1, Splice region)
+──────────────────────────────────────────────────────────────────
+ Evo 2 zero-shot delta   : -0.004202
+ Estimated P(disruptive) : 97%
+ PREDICTION              : LIKELY DISRUPTIVE (pathogenic-leaning)
+
+ CONFIDENCE: MODERATE–HIGH
+   This is a SPLICE REGION variant — the model separates this category reasonably well (benchmark AUROC 0.85). Category false-alarm rate at high sensitivity is 81%.
+
+ ClinVar                 : absent
+ Findlay experiment      : LOF  (benchmark ground truth)
+
+ NOTE: research/triage prototype — NOT a clinical diagnostic.
+──────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────
+ VARIANT  chr17:41276108 A>G   (BRCA1, Synonymous, p.D2=)
+──────────────────────────────────────────────────────────────────
+ Evo 2 zero-shot delta   : -0.000344
+ Estimated P(disruptive) : 19%
+ PREDICTION              : LIKELY TOLERATED (benign-leaning)
+
+ ⚠ CONFIDENCE: NOT ASSESSABLE
+   This is a SYNONYMOUS variant — this category had too few of one class in the benchmark to estimate reliability — treat any prediction here as unvalidated. Category false-alarm rate at high sensitivity is 70%.
+
+ ClinVar                 : Likely benign
+ Findlay experiment      : FUNC  (benchmark ground truth)
+
+ NOTE: research/triage prototype — NOT a clinical diagnostic.
+──────────────────────────────────────────────────────────────────

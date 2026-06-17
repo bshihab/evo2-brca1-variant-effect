@@ -47,7 +47,7 @@ def load_scored_dataset() -> pd.DataFrame:
 
     download_findlay()
     ann = pd.read_excel(FINDLAY_XLSX, header=2, engine="openpyxl")[
-        ["position (hg19)", "reference", "alt", "consequence",
+        ["position (hg19)", "reference", "alt", "consequence", "protein_variant",
          "CADD.score", "phyloP (mammalian)", "sift", "polyphen2",
          "gnomAD_AF", "clinvar_simple"]
     ].rename(columns={

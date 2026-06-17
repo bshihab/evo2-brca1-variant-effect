@@ -88,7 +88,7 @@
     }
   },
   "calibration": {
-    "brier": 0.17482406819793356
+    "brier": 0.1423248581296819
   },
   "severity": {
     "severe": {

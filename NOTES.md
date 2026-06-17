@@ -220,4 +220,50 @@ evaluation, and "AUROC not computable when a stratum is single-class."
 ---
 
 ## Milestone 4 — Embedding-based classifier
+*(DEFERRED — engine built & smoke-tested, but the full embedding extraction kept hitting the
+Modal free-tier/new-card budget cap. Code is ready: `modal run -m gvep.scoring.modal_app::embed`
+(now should be made checkpoint-resumable before re-attempting). Skipped to M5 to keep momentum
+for $0.)*
+
+---
+
+## Milestone 5 — Explanation layer
+
+**Date:** 2026-06-17
+
+### What this milestone is
+Turn the model output into a structured, plain-language, **trust-aware** explanation per
+variant — the piece that makes the honesty layer actionable. Code: `gvep/explain.py`;
+run via `python -m gvep.cli explain [--pos --ref --alt]`.
+
+### What it combines
+- Evo 2 delta (M2) → a **calibrated P(disruptive)**.
+- M3 per-category reliability → a **trust tier + caveat** (e.g. missense = "low, don't rely";
+  splice region = "moderate–high").
+- ClinVar significance + the Findlay experimental label (benchmark ground truth).
+
+### Bug caught & fixed (important)
+The delta→probability calibrator (and the M3 calibration block) used an **unscaled** logistic on
+a ~1e-3 feature, so it collapsed to the base rate (every variant ≈ 22.6%). The tell: M3's Brier
+was exactly 0.226×0.774 = 0.175 (the no-skill value). Fix: **StandardScaler before LogisticRegression**.
+After the fix, probabilities span ~7%–97% and M3 Brier improved 0.175 → **0.142**; reliability
+diagram now tracks the diagonal.
+
+### Demo highlight (why this layer matters)
+The start-codon missense **p.M1I** (truly pathogenic / start-loss) gets delta −0.0003 → only
+**19% "likely tolerated"** — the model is **wrong** — but the explanation flags **⚠ LOW CONFIDENCE
+(missense, AUROC 0.60)**. Meanwhile a splice-region LOF (delta −0.0042) correctly reads **97%
+disruptive, moderate–high confidence**. The category-aware caveat is what stops a user from
+trusting the confident-but-wrong missense call.
+
+### Output
+`results/example_explanations.txt`. CLI also explains any scored variant by coordinate.
+
+### LLM option
+Output is a structured dict, so an LLM *could* render the prose; we render deterministically to
+stay free + reproducible.
+
+---
+
+## Milestone 6 — Demo app + packaging
 *(not started)*

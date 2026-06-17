@@ -92,11 +92,15 @@ function is often the clinically ambiguous case where help is most needed.
 
 ## 5. Calibration
 
-Raw delta scores are **not** probabilities (they're tiny per-token log-likelihood differences).
-After a cross-validated logistic recalibration, the reliability diagram (`m3_calibration.png`) is
-reasonable (**Brier = 0.175**), but the takeaway is that **the raw score must be recalibrated
-before it can be read as a "probability of pathogenic"** — an important caveat for any downstream
-use or explanation layer.
+Raw delta scores are **not** probabilities (they're tiny per-token log-likelihood differences,
+~1e-3). They must be recalibrated before they can be read as a "probability of pathogenic" — and
+the recalibration must **standardize** the feature first, or the logistic collapses to the base
+rate (a subtle bug we caught: its Brier equalled the no-skill prevalence baseline exactly).
+
+After a *properly scaled*, cross-validated logistic recalibration, the reliability diagram
+(`m3_calibration.png`) tracks the diagonal well across the full 0–1 range (**Brier = 0.142** vs a
+no-skill baseline of 0.175). So the recalibrated probability is usable — but only as a rough,
+gene-specific estimate, and the raw score alone is not interpretable as a probability.
 
 ---
 

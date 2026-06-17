@@ -64,6 +64,21 @@ def cmd_classify(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_explain(args: argparse.Namespace) -> int:
+    """[Milestone 5] Plain-language, trust-aware explanation for a variant."""
+    from gvep.explain import explain_variant, format_explanation, run_demo
+
+    if args.pos and args.ref and args.alt:
+        e = explain_variant(args.pos, args.ref, args.alt)
+        if e is None:
+            print(f"Variant chr17:{args.pos} {args.ref}>{args.alt} not in the scored set.")
+            return 1
+        print(format_explanation(e))
+    else:
+        run_demo()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gvep",
@@ -78,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sanity", help="[M2] plot delta distributions + quick AUROC").set_defaults(func=cmd_sanity)
     sub.add_parser("validate", help="[M3] metrics + honesty layer").set_defaults(func=cmd_validate)
     sub.add_parser("classify", help="[M4] embedding classifier vs zero-shot").set_defaults(func=cmd_classify)
+    p_ex = sub.add_parser("explain", help="[M5] trust-aware explanation for a variant")
+    p_ex.add_argument("--pos", type=int, help="hg19 position on chr17")
+    p_ex.add_argument("--ref", type=str, help="reference allele")
+    p_ex.add_argument("--alt", type=str, help="alternate allele")
+    p_ex.set_defaults(func=cmd_explain)
     return parser
 
 

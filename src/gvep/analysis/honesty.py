@@ -33,6 +33,8 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import cross_val_predict
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from gvep.analysis.dataset import PREDICTORS, load_scored_dataset
 from gvep.config import FIGURES_DIR, METRICS_DIR
@@ -145,8 +147,10 @@ def run() -> dict:
                 M[key][val] = {"n": int(len(g)), "auroc": float(roc_auc_score(yg, sg))}
 
     # --- 4. Calibration (cross-validated logistic -> reliability) ------------
-    lr = LogisticRegression()
-    p = cross_val_predict(lr, s_clean.reshape(-1, 1), y_clean, cv=5, method="predict_proba")[:, 1]
+    # StandardScaler is essential: raw delta is ~1e-3, so an unscaled logistic collapses
+    # to the base rate (its Brier would just equal the no-skill prevalence baseline).
+    cal = make_pipeline(StandardScaler(), LogisticRegression())
+    p = cross_val_predict(cal, s_clean.reshape(-1, 1), y_clean, cv=5, method="predict_proba")[:, 1]
     brier = brier_score_loss(y_clean, p)
     M["calibration"] = {"brier": float(brier)}
     print(f"\n[4] CALIBRATION (after CV logistic recalibration): Brier={brier:.3f}")
