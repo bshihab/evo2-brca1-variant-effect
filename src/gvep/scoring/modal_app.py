@@ -75,6 +75,11 @@ cache = modal.Volume.from_name("evo2-cache", create_if_missing=True)
 # local connection (e.g. the Mac sleeping). We then fetch them in a quick call.
 RESULTS_PATH = "/cache/results/raw_scores.csv"
 
+# Milestone 4: embeddings. We extract a late-middle layer's representation at the
+# variant position and store the (variant - reference) difference vector per variant.
+EMB_LAYER = os.environ.get("GVEP_EMB_LAYER", "blocks.20.mlp.l3")
+EMB_PATH = "/cache/results/embeddings.npz"
+
 
 # --- Remote helpers (run inside the GPU container) -------------------------
 def _load_chr17() -> str:
@@ -163,6 +168,79 @@ def get_results() -> str:
         return fh.read()
 
 
+# --- Milestone 4: embedding extraction -------------------------------------
+def _embed_center(model, seqs: list[str], centers: list[int]) -> list:
+    """Return the layer-EMB_LAYER embedding vector at each sequence's center position."""
+    import torch
+
+    out = []
+    for seq, c in zip(seqs, centers):
+        ids = torch.tensor(model.tokenizer.tokenize(seq), dtype=torch.int).unsqueeze(0).to("cuda:0")
+        with torch.no_grad():
+            _, emb = model(ids, return_embeddings=True, layer_names=[EMB_LAYER])
+        out.append(emb[EMB_LAYER][0, c, :].float().cpu().numpy())
+    return out
+
+
+@app.function(gpu=GPU, volumes={"/cache": cache}, timeout=14400)
+def extract_embeddings(records: list[dict]) -> int:
+    """Per variant, store the (variant - reference) embedding difference to the Volume."""
+    import numpy as np
+
+    from evo2.models import Evo2
+
+    from gvep.data.windows import build_window
+
+    print(f"[remote] embeddings: GPU={GPU}, layer={EMB_LAYER}, variants={len(records):,}")
+    seq = _load_chr17()
+    model = Evo2(EVO2_MODEL)
+
+    ref_by_pos: dict[int, tuple[str, int]] = {}
+    var_items = []  # (idx, pos, var_seq, center)
+    for r in records:
+        w = build_window(seq, r["pos"], r["ref"], r["alt"], WINDOW_BP)
+        ref_by_pos[r["pos"]] = (w.ref_seq, w.center)
+        var_items.append((r["idx"], r["pos"], w.var_seq, w.center))
+
+    pos_list = list(ref_by_pos)
+    print(f"[remote] embedding {len(pos_list):,} ref + {len(var_items):,} var windows")
+    ref_vecs = _embed_center(model, [ref_by_pos[p][0] for p in pos_list],
+                             [ref_by_pos[p][1] for p in pos_list])
+    ref_emb = dict(zip(pos_list, ref_vecs))
+    var_vecs = _embed_center(model, [it[2] for it in var_items], [it[3] for it in var_items])
+
+    idxs = np.array([it[0] for it in var_items])
+    diff = np.stack([v - ref_emb[it[1]] for v, it in zip(var_vecs, var_items)]).astype("float32")
+    import os
+
+    os.makedirs(os.path.dirname(EMB_PATH), exist_ok=True)
+    np.savez_compressed(EMB_PATH, idx=idxs, diff=diff)
+    cache.commit()
+    print(f"[remote] ✅ wrote embeddings {diff.shape} to {EMB_PATH}")
+    return int(len(idxs))
+
+
+@app.function(gpu=GPU, volumes={"/cache": cache}, timeout=1800)
+def smoke_embed() -> dict:
+    """Validate the embedding layer name on one short sequence (cheap)."""
+    import torch
+
+    from evo2.models import Evo2
+
+    model = Evo2(EVO2_MODEL)
+    ids = torch.tensor(model.tokenizer.tokenize("ACGTACGTACGTACGT"), dtype=torch.int).unsqueeze(0).to("cuda:0")
+    _, emb = model(ids, return_embeddings=True, layer_names=[EMB_LAYER])
+    return {"layer": EMB_LAYER, "shape": tuple(emb[EMB_LAYER].shape)}
+
+
+@app.function(volumes={"/cache": cache})
+def get_embeddings() -> bytes:
+    """Return the embeddings .npz bytes from the Volume."""
+    cache.reload()
+    with open(EMB_PATH, "rb") as fh:
+        return fh.read()
+
+
 @app.function(gpu=GPU, volumes={"/cache": cache}, timeout=1800)
 def smoke_score() -> dict:
     """Cheap validation: load the model and score 2 ref/var pairs on the chosen GPU."""
@@ -237,3 +315,50 @@ def fetch():
     """`modal run -m gvep.scoring.modal_app::fetch` — recover results from the Volume
     (e.g. if the scoring run completed server-side but the local connection dropped)."""
     _save_from_volume()
+
+
+# --- Milestone 4 embedding entrypoints -------------------------------------
+def _save_embeddings_from_volume() -> None:
+    import io
+
+    import numpy as np
+
+    from gvep.config import CACHE_DIR
+
+    raw = get_embeddings.remote()
+    arr = np.load(io.BytesIO(raw))
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    dest = CACHE_DIR / "evo2_embeddings.npz"
+    dest.write_bytes(raw)
+    print(f"\n✅ wrote {dest}  (diff shape {arr['diff'].shape})")
+
+
+@app.local_entrypoint()
+def embed_smoke():
+    """`modal run -m gvep.scoring.modal_app::embed_smoke` — validate the embedding layer."""
+    r = smoke_embed.remote()
+    print(f"\n✅ embeddings work. layer={r['layer']} shape={r['shape']} "
+          f"(batch, length, hidden)")
+
+
+@app.local_entrypoint()
+def embed():
+    """Extract embeddings for all variants (detached-safe). Recover with ::embed_fetch."""
+    import pandas as pd
+
+    from gvep.data.build import FINDLAY_OUT
+
+    df = pd.read_csv(FINDLAY_OUT)
+    records = [
+        {"idx": int(i), "pos": int(row.pos), "ref": row.ref, "alt": row.alt}
+        for i, row in df.iterrows()
+    ]
+    print(f"Extracting embeddings for {len(records):,} variants on {GPU}...")
+    extract_embeddings.remote(records)
+    _save_embeddings_from_volume()
+
+
+@app.local_entrypoint()
+def embed_fetch():
+    """`modal run -m gvep.scoring.modal_app::embed_fetch` — recover embeddings from Volume."""
+    _save_embeddings_from_volume()

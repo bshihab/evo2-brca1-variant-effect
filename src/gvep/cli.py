@@ -56,6 +56,14 @@ def cmd_validate(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_classify(_args: argparse.Namespace) -> int:
+    """[Milestone 4] Train embedding classifier; compare to zero-shot."""
+    from gvep.analysis.classifier import run
+
+    run()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gvep",
@@ -69,6 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("score", help="[M2] how to run Evo 2 scoring on Modal").set_defaults(func=cmd_score)
     sub.add_parser("sanity", help="[M2] plot delta distributions + quick AUROC").set_defaults(func=cmd_sanity)
     sub.add_parser("validate", help="[M3] metrics + honesty layer").set_defaults(func=cmd_validate)
+    sub.add_parser("classify", help="[M4] embedding classifier vs zero-shot").set_defaults(func=cmd_classify)
     return parser
 
 
