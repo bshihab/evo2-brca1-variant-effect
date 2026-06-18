@@ -313,3 +313,34 @@ make ui     # Streamlit demo
 ### Project status
 Milestones 0–3, 5, 6 complete; Milestone 4 (embedding classifier) deferred on cloud budget
 (engine built + smoke-tested). The project is a complete, honest, runnable POC.
+
+---
+
+## Milestone 7 (stretch) — Evo 2 vs AlphaMissense
+
+**Date:** 2026-06-17
+
+### What this is
+Benchmark Evo 2 against **AlphaMissense** (DeepMind's SOTA missense predictor) on BRCA1 missense.
+Free, no GPU. Code: `analysis/alphamissense.py`; CLI `benchmark`.
+
+### Data prep
+AlphaMissense hg19 (Zenodo 8360242, 622 MB) downloaded + stream-filtered to the BRCA1 region
+(`gzip -dc | awk` on chr17:41,190,000–41,280,000) → 12,464 rows. No tabix index hosted, so we
+filter the full stream. (Gotcha: the first filter run was still streaming when checked — awk
+buffers output, so the file looked empty until done.)
+
+### Result (honest)
+On BRCA1 missense (n=1,908): **AlphaMissense 0.904** ≫ CADD 0.757 > phyloP 0.739 > SIFT 0.707 >
+PolyPhen-2 0.664 > **Evo 2 1B 0.608** (last).
+
+### Interpretation (both directions)
+- AlphaMissense is supervised + missense-specialized → it *should* win on missense, and does, big.
+- BUT it **only** scores missense; it can't touch non-coding/splice, where Evo 2 was strongest
+  (0.85). Different scope: specialist vs. general-purpose zero-shot.
+- 1B is the budget model; 40B is far stronger.
+- Takeaway: a real system would **combine** them (specialist for missense, foundation model for
+  the rest). Honest negative-for-Evo2 result, fairly framed.
+
+### Project complete
+All milestones 0–7 done. 🎉

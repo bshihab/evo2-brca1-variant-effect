@@ -73,6 +73,7 @@ missense prediction is flagged "low trust — do not rely," because that's where
 | 4 | Embedding-based classifier | ✅ done — zero-shot **wins** (honest negative result; see RESULTS.md) |
 | 5 | Explanation layer | ✅ done (trust-aware per-variant explanations) |
 | 6 | Demo app + packaging | ✅ done (FastAPI + Streamlit) |
+| 7 | Stretch: benchmark vs AlphaMissense | ✅ done (AlphaMissense 0.90 ≫ Evo 2 1B 0.61 on missense) |
 
 ## Quickstart
 

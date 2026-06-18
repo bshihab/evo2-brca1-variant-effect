@@ -183,3 +183,39 @@ multiple layers), the larger 7B/40B model, or training across *many* genes could
 result. What this milestone shows cleanly is the **methodology**: a fancier model is not
 automatically better, and only honest cross-validation tells you the truth. **For this prototype,
 the simple zero-shot score remains the better predictor.**
+
+---
+
+# Milestone 7 (stretch) — Evo 2 vs AlphaMissense
+
+We added **AlphaMissense** (Google DeepMind's state-of-the-art *missense* predictor) to the
+benchmark on the BRCA1 missense variants — the category where Evo 2 1B was weakest. AlphaMissense
+scores come from its public hg19 release (Zenodo 8360242), filtered to the BRCA1 region.
+1,908 of our 1,917 missense variants had an AlphaMissense score. (`m7_alphamissense.png`.)
+
+| Predictor | AUROC (BRCA1 missense, LOF vs FUNC) |
+|---|---|
+| **AlphaMissense** | **0.904** |
+| CADD | 0.757 |
+| phyloP | 0.739 |
+| SIFT | 0.707 |
+| PolyPhen-2 | 0.664 |
+| **Evo 2 1B (zero-shot)** | **0.608** |
+
+**AlphaMissense wins decisively (0.90 vs 0.61)** — and it's worth being clear-eyed about why,
+in both directions:
+
+- **Why AlphaMissense wins:** it's a *supervised, missense-specialized* model trained on enormous
+  data with protein-structure signal — exactly engineered for this task. On its home turf, it
+  should win, and it does, by a wide margin.
+- **The fair counterpoint (scope):** AlphaMissense **only scores missense variants.** It cannot
+  touch the non-coding, intronic, or splice variants — and **splice was Evo 2's best category
+  (AUROC 0.85 in M3).** Evo 2 is a *general-purpose, zero-shot* DNA model whose value is breadth
+  (any variant type, no task labels), not peak missense accuracy.
+- **Model size:** this is the **1B budget** Evo 2; the published 40B is far stronger on BRCA1.
+
+**Honest takeaway:** for scoring *missense* pathogenicity specifically, a specialized tool like
+AlphaMissense is the right choice and far outperforms the Evo 2 1B. Evo 2's niche is different —
+broad, label-free scoring across *all* variant classes (including the non-coding ones no missense
+tool can address). A serious triage system would likely **combine** them: a specialist for
+missense, a foundation model for everything else.
