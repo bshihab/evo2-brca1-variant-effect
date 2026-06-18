@@ -12,6 +12,13 @@ in gvep/app/api.py.)
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Make the `gvep` package importable when deployed (e.g. Streamlit Community Cloud
+# runs `streamlit run` without `pip install -e .`, so src/ isn't on the path).
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import pandas as pd
 import streamlit as st
 
