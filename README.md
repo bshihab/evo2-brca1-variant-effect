@@ -96,6 +96,17 @@ make ui         # [M6] Streamlit demo UI
 - **UI:** `make ui` → enter a variant and see score + calibrated probability + category-aware
   confidence, plus a VUS-prioritization table. (Operates on the ~3,900 benchmark variants.)
 
+### Screenshots
+
+*Explain a variant — note the honesty layer: the model predicts "LIKELY TOLERATED," but flags
+**LOW confidence** because this is a missense variant where it's near-chance:*
+
+![Explain a variant](docs/img/app_explain.png)
+
+*VUS prioritization — uncertain variants ranked by predicted disruptiveness, with confidence:*
+
+![VUS prioritization](docs/img/app_prioritize.png)
+
 ## What I learned
 
 - **Foundation-model variant scoring end to end:** Evo 2 access paths, FP8/Transformer-Engine
@@ -108,6 +119,9 @@ make ui         # [M6] Streamlit demo UI
   honesty — plus benchmarking against established tools instead of grading on a curve.
 - **Responsible ML framing:** separating *prediction* from *confidence*, and refusing to claim a
   confidence the data can't support.
+
+Full reflection in **[LEARNINGS.md](LEARNINGS.md)**; ready-to-use project blurbs in
+**[docs/portfolio_blurb.md](docs/portfolio_blurb.md)**.
 
 ## Repository layout
 
