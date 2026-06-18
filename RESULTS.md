@@ -145,3 +145,41 @@ tool. That is an honest, uncomfortable result, and it's important to report it r
 
 The point of a research/triage prototype is to know *exactly* how much to trust it, per category.
 This milestone delivers that — including the parts that aren't flattering.
+
+---
+
+# Milestone 4 — Can a supervised classifier on embeddings beat zero-shot?
+
+**Short answer: no — and the rigorous evaluation is what reveals it.**
+
+Instead of Evo 2's delta *score*, we extracted its internal **embedding** (1,920-dim) at the
+variant position (layer `blocks.20.mlp.l3`) and used the **(variant − reference) difference** as
+features. We trained a logistic regression and a small neural net (PCA-50 front-end), evaluated
+with **grouped 5-fold cross-validation by genomic position** (so the test fold contains positions
+never seen in training — no memorizing positions), and compared to the zero-shot baseline on the
+same 3,644 variants. (`m4_classifier.png`.)
+
+| Method | AUROC (grouped CV) | vs zero-shot |
+|---|---|---|
+| **Zero-shot Δ score** | **0.737** | — |
+| Logistic regression on embeddings | 0.605 | −0.131 |
+| Neural net on embeddings | 0.620 | −0.117 |
+| (missense only) zero-shot 0.604 → emb 0.567 | | −0.037 |
+
+**The overfitting check is the lesson.** The neural net reached **train AUROC = 1.000 but CV =
+0.620** — an overfit gap of **0.38**. A naive evaluation (reporting train accuracy, or
+non-grouped CV that leaks positions) would have shown a *spectacular-looking* number and been
+completely misleading. Honest, leakage-free evaluation exposed that the model memorized rather
+than generalized.
+
+**Why no gain here (interpretation):**
+- The honest task — generalize to *entirely new positions* — is hard with limited within-gene data.
+- A single-position embedding-difference may be a weak feature; the zero-shot delta is already a
+  strong, distilled signal that's tough to beat with a light classifier.
+- With 1,920 features and ~1,300 position-groups, models overfit before they generalize.
+
+**Caveats (this is one setup, not a verdict on embeddings):** a richer feature (mean-pooling, or
+multiple layers), the larger 7B/40B model, or training across *many* genes could change the
+result. What this milestone shows cleanly is the **methodology**: a fancier model is not
+automatically better, and only honest cross-validation tells you the truth. **For this prototype,
+the simple zero-shot score remains the better predictor.**

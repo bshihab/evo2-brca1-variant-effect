@@ -26,6 +26,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import StratifiedGroupKFold, cross_val_predict
@@ -61,7 +62,9 @@ def run() -> dict:
             "  modal run -m gvep.scoring.modal_app::embed"
         )
     npz = np.load(EMB_NPZ)
-    emb = {int(i): npz["diff"][k] for k, i in enumerate(npz["idx"])}
+    # Materialize the arrays ONCE — indexing npz[...] re-reads the whole archive each time.
+    diff_arr, idx_arr = npz["diff"], npz["idx"]
+    emb = {int(i): diff_arr[k] for k, i in enumerate(idx_arr)}
 
     df = load_scored_dataset().reset_index(drop=True)
     df["idx"] = df.index
@@ -85,16 +88,21 @@ def run() -> dict:
     M["zero_shot"] = {"auroc": float(zs_auroc), "auprc": float(zs_auprc)}
     print(f"\n  zero-shot (Δ score):        AUROC={zs_auroc:.3f}  AUPRC={zs_auprc:.3f}")
 
+    # PCA(50) compresses the 1,920-dim embedding diff: far less memory + compute, and
+    # fewer parameters to overfit. Both models share this front-end.
     estimators = {
         "logreg": lambda: make_pipeline(
-            StandardScaler(), LogisticRegression(C=0.05, max_iter=5000)),
+            StandardScaler(), PCA(n_components=50, random_state=0),
+            LogisticRegression(C=0.5, max_iter=2000)),
         "mlp": lambda: make_pipeline(
-            StandardScaler(),
-            MLPClassifier(hidden_layer_sizes=(128,), alpha=1e-2,
-                          max_iter=400, random_state=0)),
+            StandardScaler(), PCA(n_components=50, random_state=0),
+            MLPClassifier(hidden_layer_sizes=(64,), alpha=1e-2,
+                          max_iter=300, random_state=0)),
     }
+    oof_by_model = {}
     for name, make_est in estimators.items():
-        cv_auroc, cv_auprc, train_auroc, _ = _cv_auroc(make_est, X, y, groups)
+        cv_auroc, cv_auprc, train_auroc, oof = _cv_auroc(make_est, X, y, groups)
+        oof_by_model[name] = oof
         M[name] = {"cv_auroc": cv_auroc, "cv_auprc": cv_auprc,
                    "train_auroc": train_auroc, "gain_vs_zeroshot": cv_auroc - zs_auroc}
         print(f"\n  {name:<8} (grouped {N_SPLITS}-fold CV):")
@@ -105,13 +113,11 @@ def run() -> dict:
 
     # Where does it help? The category zero-shot was weakest on: missense.
     print("\n  missense-only (the hard category zero-shot scored ~0.60):")
-    mis = df["consequence"] == "Missense"
+    mis = (df["consequence"] == "Missense").to_numpy()
     M["missense"] = {}
     if mis.sum() > 50:
-        ym, zsm = y[mis.to_numpy()], zs[mis.to_numpy()]
-        _, _, _, oof_lr = _cv_auroc(estimators["logreg"], X, y, groups)
-        zs_mis = roc_auc_score(ym, zsm)
-        emb_mis = roc_auc_score(ym, oof_lr[mis.to_numpy()])
+        zs_mis = roc_auc_score(y[mis], zs[mis])
+        emb_mis = roc_auc_score(y[mis], oof_by_model["logreg"][mis])  # reuse OOF
         M["missense"] = {"zero_shot": float(zs_mis), "logreg": float(emb_mis),
                          "gain": float(emb_mis - zs_mis)}
         print(f"      zero-shot={zs_mis:.3f}   logreg(emb)={emb_mis:.3f}   "

@@ -70,7 +70,7 @@ missense prediction is flagged "low trust — do not rely," because that's where
 | 1 | Data layer (Findlay + ClinVar + reference) | ✅ done |
 | 2 | Core zero-shot scoring engine | ✅ done (AUROC 0.74, matches published ~0.73) |
 | 3 | Validation + honesty layer | ✅ done (see [RESULTS.md](RESULTS.md)) |
-| 4 | Embedding-based classifier | ⏸️ deferred (engine ready; paused on cloud budget) |
+| 4 | Embedding-based classifier | ✅ done — zero-shot **wins** (honest negative result; see RESULTS.md) |
 | 5 | Explanation layer | ✅ done (trust-aware per-variant explanations) |
 | 6 | Demo app + packaging | ✅ done (FastAPI + Streamlit) |
 

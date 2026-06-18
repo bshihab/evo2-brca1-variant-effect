@@ -220,10 +220,28 @@ evaluation, and "AUROC not computable when a stratum is single-class."
 ---
 
 ## Milestone 4 — Embedding-based classifier
-*(DEFERRED — engine built & smoke-tested, but the full embedding extraction kept hitting the
-Modal free-tier/new-card budget cap. Code is ready: `modal run -m gvep.scoring.modal_app::embed`
-(now should be made checkpoint-resumable before re-attempting). Skipped to M5 to keep momentum
-for $0.)*
+
+**Date:** 2026-06-17 (completed after raising the Modal budget)
+
+### What this milestone is
+Extract Evo 2 embeddings and train a supervised classifier on them, to see if it beats the
+zero-shot delta (0.737). Code: `analysis/classifier.py`; CLI `classify`.
+
+### Result: NO — zero-shot wins (a valuable negative result)
+- Features = 1,920-dim (var − ref) embedding diff at the variant position (`blocks.20.mlp.l3`).
+- **Grouped 5-fold CV by genomic position** (no position leakage), PCA-50 + logreg / small MLP.
+- **Zero-shot 0.737 > MLP 0.620 > logreg 0.605.** Missense: 0.604 → 0.567 (no help).
+- **MLP overfit hard: train 1.000 vs CV 0.620 (gap 0.38).** A naive eval would have shown the
+  MLP looking amazing — the grouped CV exposed memorization. *That's* the takeaway: methodology
+  over hype; fancier ≠ better; only leakage-free CV tells the truth.
+- Caveats: one lightweight setup (single-position diff, 1B model, within-gene); richer features /
+  bigger model / cross-gene training could change it.
+
+### Engineering lessons (debugging this run)
+- **Resumable extraction worked:** ran 16 chunks to completion after the budget was raised.
+- **Two bugs caught:** (1) `np.load(npz)["diff"][k]` inside a loop re-reads the whole archive
+  every iteration → ~100 GB churn → OOM (exit 137); fixed by materializing the array once.
+  (2) buffered stdout hides progress when a process is SIGKILLed — use `python -u` to localize.
 
 ---
 
