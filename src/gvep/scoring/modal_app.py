@@ -182,42 +182,67 @@ def _embed_center(model, seqs: list[str], centers: list[int]) -> list:
     return out
 
 
+EMB_CHUNK_DIR = "/cache/results/emb_chunks"
+EMB_CHUNK = 256  # variants per checkpoint
+
+
 @app.function(gpu=GPU, volumes={"/cache": cache}, timeout=14400)
 def extract_embeddings(records: list[dict]) -> int:
-    """Per variant, store the (variant - reference) embedding difference to the Volume."""
+    """Extract (variant - reference) embeddings, checkpointing every EMB_CHUNK variants.
+
+    RESUMABLE: each chunk is saved to the Volume and committed immediately, so if the run
+    is killed (budget cap, eviction, dropped connection) no work is lost — rerunning skips
+    chunks that already exist. Records are sorted by position so same-position variants share
+    a reference-window embedding within a chunk.
+    """
+    import glob
+    import os
+
     import numpy as np
 
     from evo2.models import Evo2
 
     from gvep.data.windows import build_window
 
-    print(f"[remote] embeddings: GPU={GPU}, layer={EMB_LAYER}, variants={len(records):,}")
-    seq = _load_chr17()
-    model = Evo2(EVO2_MODEL)
+    os.makedirs(EMB_CHUNK_DIR, exist_ok=True)
+    cache.reload()
+    records = sorted(records, key=lambda r: r["pos"])
+    n_chunks = (len(records) + EMB_CHUNK - 1) // EMB_CHUNK
+    done = set(glob.glob(f"{EMB_CHUNK_DIR}/chunk_*.npz"))
+    print(f"[remote] embeddings: GPU={GPU}, layer={EMB_LAYER}, variants={len(records):,}, "
+          f"{n_chunks} chunks, {len(done)} already done")
 
-    ref_by_pos: dict[int, tuple[str, int]] = {}
-    var_items = []  # (idx, pos, var_seq, center)
-    for r in records:
-        w = build_window(seq, r["pos"], r["ref"], r["alt"], WINDOW_BP)
-        ref_by_pos[r["pos"]] = (w.ref_seq, w.center)
-        var_items.append((r["idx"], r["pos"], w.var_seq, w.center))
+    model = None
+    for start in range(0, len(records), EMB_CHUNK):
+        chunk_file = f"{EMB_CHUNK_DIR}/chunk_{start:06d}.npz"
+        if chunk_file in done:
+            continue
+        if model is None:  # load lazily so a fully-resumed run skips GPU work
+            seq = _load_chr17()
+            model = Evo2(EVO2_MODEL)
 
-    pos_list = list(ref_by_pos)
-    print(f"[remote] embedding {len(pos_list):,} ref + {len(var_items):,} var windows")
-    ref_vecs = _embed_center(model, [ref_by_pos[p][0] for p in pos_list],
-                             [ref_by_pos[p][1] for p in pos_list])
-    ref_emb = dict(zip(pos_list, ref_vecs))
-    var_vecs = _embed_center(model, [it[2] for it in var_items], [it[3] for it in var_items])
+        chunk = records[start:start + EMB_CHUNK]
+        ref_by_pos: dict[int, tuple[str, int]] = {}
+        var_items = []
+        for r in chunk:
+            w = build_window(seq, r["pos"], r["ref"], r["alt"], WINDOW_BP)
+            ref_by_pos[r["pos"]] = (w.ref_seq, w.center)
+            var_items.append((r["idx"], r["pos"], w.var_seq, w.center))
+        pos_list = list(ref_by_pos)
+        ref_emb = dict(zip(pos_list, _embed_center(
+            model, [ref_by_pos[p][0] for p in pos_list], [ref_by_pos[p][1] for p in pos_list])))
+        var_vecs = _embed_center(model, [it[2] for it in var_items], [it[3] for it in var_items])
 
-    idxs = np.array([it[0] for it in var_items])
-    diff = np.stack([v - ref_emb[it[1]] for v, it in zip(var_vecs, var_items)]).astype("float32")
-    import os
+        idxs = np.array([it[0] for it in var_items])
+        diff = np.stack([v - ref_emb[it[1]] for v, it in zip(var_vecs, var_items)]).astype("float32")
+        np.savez_compressed(chunk_file, idx=idxs, diff=diff)
+        cache.commit()
+        print(f"[remote] ✅ chunk {start // EMB_CHUNK + 1}/{n_chunks} "
+              f"({start + len(chunk):,}/{len(records):,} variants)")
 
-    os.makedirs(os.path.dirname(EMB_PATH), exist_ok=True)
-    np.savez_compressed(EMB_PATH, idx=idxs, diff=diff)
-    cache.commit()
-    print(f"[remote] ✅ wrote embeddings {diff.shape} to {EMB_PATH}")
-    return int(len(idxs))
+    total = len(glob.glob(f"{EMB_CHUNK_DIR}/chunk_*.npz"))
+    print(f"[remote] {total}/{n_chunks} chunks present")
+    return total
 
 
 @app.function(gpu=GPU, volumes={"/cache": cache}, timeout=1800)
@@ -235,10 +260,34 @@ def smoke_embed() -> dict:
 
 @app.function(volumes={"/cache": cache})
 def get_embeddings() -> bytes:
-    """Return the embeddings .npz bytes from the Volume."""
+    """Assemble all embedding chunks from the Volume into one .npz and return its bytes."""
+    import glob
+    import io
+
+    import numpy as np
+
     cache.reload()
-    with open(EMB_PATH, "rb") as fh:
-        return fh.read()
+    files = sorted(glob.glob(f"{EMB_CHUNK_DIR}/chunk_*.npz"))
+    if not files:
+        raise FileNotFoundError("no embedding chunks yet — run ::embed first")
+    idx = np.concatenate([np.load(f)["idx"] for f in files])
+    diff = np.concatenate([np.load(f)["diff"] for f in files])
+    buf = io.BytesIO()
+    np.savez_compressed(buf, idx=idx, diff=diff)
+    return buf.getvalue()
+
+
+@app.function(volumes={"/cache": cache})
+def embed_progress() -> dict:
+    """How many embedding chunks/variants are done so far (cheap progress probe)."""
+    import glob
+
+    import numpy as np
+
+    cache.reload()
+    files = glob.glob(f"{EMB_CHUNK_DIR}/chunk_*.npz")
+    done = sum(int(len(np.load(f)["idx"])) for f in files)
+    return {"chunks": len(files), "variants_done": done}
 
 
 @app.function(gpu=GPU, volumes={"/cache": cache}, timeout=1800)
@@ -362,3 +411,9 @@ def embed():
 def embed_fetch():
     """`modal run -m gvep.scoring.modal_app::embed_fetch` — recover embeddings from Volume."""
     _save_embeddings_from_volume()
+
+
+@app.local_entrypoint()
+def embed_status():
+    """`modal run -m gvep.scoring.modal_app::embed_status` — how many chunks done so far."""
+    print(embed_progress.remote())
