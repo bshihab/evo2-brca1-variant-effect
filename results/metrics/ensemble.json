@@ -1,0 +1,17 @@
+{
+  "n": 3644,
+  "n_missense_routed_to_AM": 1908,
+  "am_coverage": 0.5236004390779363,
+  "full_set": {
+    "Evo 2 alone": 0.7174696114844274,
+    "AlphaMissense alone (missense-only coverage)": 0.7692809483465227,
+    "Hybrid (Evo 2 + AlphaMissense)": 0.8751043962504786
+  },
+  "missense_only": {
+    "Evo 2": 0.5821312292984041,
+    "AlphaMissense": 0.8882051089029408
+  },
+  "non_missense_only": {
+    "Evo 2 (= hybrid here)": 0.8714933589404729
+  }
+}

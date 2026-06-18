@@ -219,3 +219,41 @@ AlphaMissense is the right choice and far outperforms the Evo 2 1B. Evo 2's nich
 broad, label-free scoring across *all* variant classes (including the non-coding ones no missense
 tool can address). A serious triage system would likely **combine** them: a specialist for
 missense, a foundation model for everything else.
+
+---
+
+# Milestone 7+ — A hybrid Evo 2 + AlphaMissense ensemble (and it works)
+
+The benchmarks above revealed a clear complementarity: AlphaMissense dominates *missense* but
+**only covers missense**; Evo 2 covers *every* variant type and is strongest on *splice*. So we
+built a **routing ensemble**: send each variant to the tool that's good at it.
+
+    hybrid = AlphaMissense   if the variant is missense
+             Evo 2 (Δ)       otherwise (non-coding / splice / intronic / …)
+
+To combine the two on a common scale across the routing boundary, each score is mapped to a
+**probability of LOF** with a 5-fold cross-validated calibrator (leakage-free). Evaluated on the
+**full benchmark (all variant types, n=3,644):**
+
+| Method | AUROC (full set) |
+|---|---|
+| Evo 2 alone | 0.717 |
+| AlphaMissense alone (can only cover the 52% that are missense) | 0.769 |
+| **Hybrid (Evo 2 + AlphaMissense)** | **0.875** |
+
+**The hybrid beats both tools decisively** (`m7_ensemble.png`). And the per-segment view shows
+exactly why — no magic, just routing:
+
+- **Missense (52% of variants):** Evo 2 **0.58 → AlphaMissense 0.89** — a large upgrade.
+- **Non-missense (48%):** kept on Evo 2 at **0.87** — variants AlphaMissense *cannot score at all*.
+
+**Why this is the satisfying result of the project.** After two honest *negative* findings (the
+zero-shot score beat the embedding classifier; a specialist beat the 1B on missense), this is a
+real *positive* one — and it came from taking those negatives seriously. We didn't just run a
+bigger model; we **identified each tool's blind spot from our own evaluation and engineered a
+combined predictor that fixes both.** That's the actual workflow of applied ML for genomics:
+know your model's failure modes, then route around them.
+
+*(Caveat, kept honest: the routing rule and calibration are simple and tuned on BRCA1; a
+production system would validate the routing across genes and consider a learned combiner with
+proper held-out testing.)*

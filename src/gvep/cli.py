@@ -72,6 +72,14 @@ def cmd_benchmark(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ensemble(_args: argparse.Namespace) -> int:
+    """[Milestone 7+] Hybrid Evo 2 + AlphaMissense ensemble (routing by variant type)."""
+    from gvep.analysis.ensemble import run
+
+    run()
+    return 0
+
+
 def cmd_explain(args: argparse.Namespace) -> int:
     """[Milestone 5] Plain-language, trust-aware explanation for a variant."""
     from gvep.explain import explain_variant, format_explanation, run_demo
@@ -102,6 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("validate", help="[M3] metrics + honesty layer").set_defaults(func=cmd_validate)
     sub.add_parser("classify", help="[M4] embedding classifier vs zero-shot").set_defaults(func=cmd_classify)
     sub.add_parser("benchmark", help="[M7] Evo 2 vs AlphaMissense (missense)").set_defaults(func=cmd_benchmark)
+    sub.add_parser("ensemble", help="[M7+] hybrid Evo 2 + AlphaMissense ensemble").set_defaults(func=cmd_ensemble)
     p_ex = sub.add_parser("explain", help="[M5] trust-aware explanation for a variant")
     p_ex.add_argument("--pos", type=int, help="hg19 position on chr17")
     p_ex.add_argument("--ref", type=str, help="reference allele")

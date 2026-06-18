@@ -62,6 +62,11 @@ where the model works and fails (full writeup: **[RESULTS.md](RESULTS.md)**).
 The explanation layer turns this into per-variant **category-aware confidence**: e.g. a confident
 missense prediction is flagged "low trust — do not rely," because that's where the model is weakest.
 
+- **A hybrid ensemble fixes the weaknesses:** routing each variant to the right tool (AlphaMissense
+  for missense, Evo 2 for everything else) reaches **AUROC 0.875** on the full set — beating Evo 2
+  alone (0.72) and AlphaMissense alone (0.77). Built by turning the project's own failure analysis
+  into a better predictor.
+
 ## Status
 
 | Milestone | Description | Status |
@@ -74,6 +79,7 @@ missense prediction is flagged "low trust — do not rely," because that's where
 | 5 | Explanation layer | ✅ done (trust-aware per-variant explanations) |
 | 6 | Demo app + packaging | ✅ done (FastAPI + Streamlit) |
 | 7 | Stretch: benchmark vs AlphaMissense | ✅ done (AlphaMissense 0.90 ≫ Evo 2 1B 0.61 on missense) |
+| 7+ | Hybrid Evo 2 + AlphaMissense ensemble | ✅ done — **hybrid 0.875** beats Evo 2 (0.72) & AlphaMissense (0.77) on the full set |
 
 ## Quickstart
 

@@ -342,5 +342,28 @@ PolyPhen-2 0.664 > **Evo 2 1B 0.608** (last).
 - Takeaway: a real system would **combine** them (specialist for missense, foundation model for
   the rest). Honest negative-for-Evo2 result, fairly framed.
 
+---
+
+## Milestone 7+ — Hybrid Evo 2 + AlphaMissense ensemble
+
+**Date:** 2026-06-17
+
+### What this is
+Turn the benchmark findings into a *better predictor*. AlphaMissense wins on missense but only
+covers missense; Evo 2 covers everything (best on splice). So route by variant type:
+missense → AlphaMissense, else → Evo 2. Code `analysis/ensemble.py`, CLI `ensemble`.
+
+### Method
+Each score → P(LOF) via StandardScaler+logistic, 5-fold cross_val_predict (leakage-free), so the
+two are comparable across the routing boundary. Evaluated on the full set (all variant types).
+
+### Result (a real WIN, after two honest losses)
+Full-set AUROC: **Hybrid 0.875** > AlphaMissense-alone 0.769 > Evo 2-alone 0.717.
+Per segment: missense 0.58 → 0.89 (AM upgrade); non-missense 0.87 (Evo 2, AM can't score these).
+
+### Why it's the best result
+First positive result — and it came *from* the negative ones: identified each tool's blind spot,
+engineered around it. That's the real applied-ML-for-genomics workflow.
+
 ### Project complete
-All milestones 0–7 done. 🎉
+All milestones 0–7 (+ hybrid) done. 🎉
